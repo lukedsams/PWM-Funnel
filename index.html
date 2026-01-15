@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perigon BDR Blueprint</title>
+    
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons (Vanilla) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .animate-fade { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Custom Scrollbar for inner content */
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // Robust Vanilla Icon Component for Browser Environment
+        const Icon = ({ name, size = 16, className = "" }) => {
+            const iconRef = useRef(null);
+
+            useEffect(() => {
+                if (iconRef.current && window.lucide) {
+                    // Convert PascalCase to kebab-case for data-lucide attribute
+                    // e.g. "BarChart3" -> "bar-chart-3", "ArrowRight" -> "arrow-right"
+                    const kebabName = name
+                        .replace(/([a-z])([A-Z])/g, '$1-$2')
+                        .replace(/([A-Za-z])([0-9])/g, '$1-$2')
+                        .toLowerCase();
+
+                    const iTag = document.createElement('i');
+                    iTag.setAttribute('data-lucide', kebabName);
+                    
+                    // Clear and append
+                    iconRef.current.innerHTML = '';
+                    iconRef.current.appendChild(iTag);
+
+                    // Render the icon
+                    window.lucide.createIcons({
+                        root: iconRef.current,
+                        nameAttrs: {
+                            width: size,
+                            height: size,
+                            class: className
+                        },
+                        attrs: {
+                            class: className,
+                            width: size,
+                            height: size
+                        }
+                    });
+                }
+            }, [name, size, className]);
+
+            return <span ref={iconRef} className="inline-flex items-center justify-center" />;
+        };
+
+        const App = () => {
+            const [view, setView] = useState('funnel');
+            const [activeStage, setActiveStage] = useState(0);
+
+            // --- DATA STRUCTURE ---
+            const funnelStages = [
+                {
+                    id: 'receipt',
+                    title: 'Receipt & Initial Outreach',
+                    timeline: 'Day 0 (Minutes 0–5)',
+                    icon: 'Clock',
+                    bdrAction: 'Clay.io enrichment & scoring. S2L Critical leads get SMS + 2 calls; Non-critical get tailored digital-first engagement.',
+                    objective: 'Instant enrichment and immediate segment-based engagement.',
+                    metrics: ['Clay Append Rate', 'Lead Rating Mix', 'Speed to First Dial'],
+                    isStageOne: true,
+                    dataMap: [
+                        { field: 'Lead.Clay_Enriched__c', logic: 'True/False indicating successful Clay.io data append.' },
+                        { field: 'Lead.Rating', logic: 'Standard FSC Rating (Hot/Warm/Cold) assigned post-enrichment.' },
+                        { field: 'Lead.S2L_Segment__c', logic: 'Determines automation path: Critical vs Non-Critical.' }
+                    ],
+                    categories: [
+                        {
+                            label: "S2L Critical Flow",
+                            desc: "1) Auto-SMS warning 2) Instant phone call 3) 2nd call same day if no answer.",
+                            sla: "0-5 Minutes",
+                            type: "Critical"
+                        },
+                        {
+                            label: "S2L Non-Critical Flow",
+                            desc: "1) Tailored Email/SMS based on Lead info 2) Embedded self-scheduling link.",
+                            sla: "Immediate",
+                            type: "Organic"
+                        }
+                    ]
+                },
+                {
+                    id: 'qualification',
+                    title: 'High Touch Chase',
+                    timeline: 'First 14 Days',
+                    icon: 'Zap',
+                    bdrAction: 'Intense 8-15 touch cadence. Every interaction features an interactive CTA and a self-schedule option.',
+                    objective: 'Qualify lead and secure a scheduled meeting with a Financial Advisor.',
+                    metrics: ['Self-Schedule Rate', 'CTA Click-through', '14-Day Scheduling Rate'],
+                    isStageTwo: true,
+                    cadenceTheory: {
+                        title: "Interactive Engagement Strategy",
+                        logic: "Maximum visibility across 14 days. 8-15 touches ensure Perigon is top-of-mind.",
+                        benefits: [
+                            { text: "Conditional Phone: Outreach for Non-Critical starts Day 1 ONLY IF Day 0 self-booking failed." },
+                            { text: "Self-scheduling reduces BDR friction and speeds up conversion." },
+                            { text: "Written comms MUST include direct links to capture intent at peak engagement." }
+                        ]
+                    },
+                    dataMap: [
+                        { field: 'Lead.Self_Scheduled__c', logic: 'Determines if phone outreach starts Day 1 for organic leads.' },
+                        { field: 'Lead.Touch_Point_Count__c', logic: 'Standard activity count tracking cadence density.' }
+                    ]
+                },
+                {
+                    id: 'scheduling',
+                    title: 'Meeting Held & Straggler Conversion',
+                    timeline: 'Day 15–30',
+                    icon: 'Calendar',
+                    bdrAction: 'Confirm upcoming meetings. Transition from "Data Gathering" modules to "Value Provided" tools and ToFu promos.',
+                    objective: 'Ensure scheduled meetings HOLD and convert late-stage stragglers via high-value offers.',
+                    metrics: ['Set-to-Held Rate', 'Value-Tool Engagement', 'Promo Conversion Rate'],
+                    isStageThree: true,
+                    promos: [
+                        { title: "Portfolio Fee Audit", icon: "FileSearch", desc: "A side-by-side comparison of current hidden fees vs. a Perigon optimized model." },
+                        { title: "Tax Alpha Roadmap", icon: "Percent", desc: "A personalized 3-step plan delivered in the meeting to reduce upcoming capital gains." },
+                        { title: "Estate Stress Test", icon: "ClipboardList", desc: "A 10-minute high-level review of existing trust/will documents during the intro session." },
+                        { title: "Cash Flow Simulation", icon: "Compass", desc: "Interactive visualization of spending power across a 30-year horizon for retiring leads." }
+                    ],
+                    automations: [
+                        { title: "One-Click Opp Creator", icon: "Zap", desc: "FSC conversion tool to open Opps with minimal BDR input." },
+                        { title: "Smart Owner Assignment", icon: "UserCheck", desc: "Automated FA routing based on household tier/geography." },
+                        { title: "T-24h / T-2h Reminders", icon: "Smartphone", desc: "Automated multi-channel confirm to prevent no-shows." }
+                    ],
+                    ownershipNote: "BDR is responsible for the lead until the 1st meeting successfully HOLDS. Advisor then assumes ownership for conversion.",
+                    dataMap: [
+                        { field: 'Lead.Status', logic: 'Must transition to "Meeting Set" to pause chase cadence.' },
+                        { field: 'Lead.Value_Tool_Interacted__c', logic: 'Tracks engagement with outcome-based calculators.' }
+                    ]
+                },
+                {
+                    id: 'persistence',
+                    title: 'Persistence & Differentiation',
+                    timeline: 'Day 30-60',
+                    icon: 'History',
+                    bdrAction: 'Wrangle reschedules. Transition messaging to competitive landscape and Perigon differentiation.',
+                    objective: 'Secure holds for pending meetings and maintain top-of-mind through digital impressions.',
+                    metrics: ['Reschedule Hold Rate', 'Differentiation Content Clicks', 'Intent Score Delta'],
+                    isStageFour: true,
+                    heldGoalNote: "Success Milestone: 30 days is the healthy pipeline speed limit. Post-Day 30, we stop momentum chasing and start using 'Conversion Traps' to earn engagement from leads who have entered competitor cycles or hit paralysis. Our assumptions shift from 'Speed to Lead' to 'Engagement Depth'.",
+                    scenarios: [
+                        { label: "Competitor Entry", desc: "Lead has likely started a cycle with another firm and feels committed." },
+                        { label: "Status Quo", desc: "Initial change urgency has faded; needs 'Cost of Inaction' messaging." },
+                        { label: "Paralysis", desc: "Overwhelmed by outreach; needs low-friction interactive engagement." }
+                    ],
+                    customCapabilities: [
+                        { icon: "Cpu", title: "Rapid Prototyping", text: "Instantly build and iterate sandboxed financial calculators without heavy IT dev cycles." },
+                        { icon: "Globe", title: "Edge Performance", text: "Deploy personalized, ultra-fast landing pages globally to capture attention." },
+                        { icon: "MousePointerClick", title: "Data-Driven Engagement", text: "Deep-link interactive mediums directly into SMS/Email CTAs to earn engagement." }
+                    ],
+                    potentialProviders: ["Bolt", "Replit", "Vercel", "Base44"],
+                    dataMap: [
+                        { field: 'Lead.Engagement_Score__c', logic: 'Intent spike from differentiation content triggers high-intensity call.' },
+                        { field: 'Lead.Reschedule_Count__c', logic: 'Tracks volatility to prioritize BDR time.' }
+                    ]
+                },
+                {
+                    id: 'conversion',
+                    title: 'Auto-Close & Nurture Track',
+                    timeline: 'Day 61+',
+                    icon: 'RefreshCcw',
+                    bdrAction: 'Auto-disqualify leads. Auto-close stagnant opportunities (14+ days no activity) and migrate to Nurture.',
+                    objective: 'Clean FSC pipeline and transition leads into long-term marketing nurture.',
+                    metrics: ['Auto-Close Volume', 'Nurture Re-entry Rate', 'Closed-Lost Integrity'],
+                    isStageFive: true,
+                    dataMap: [
+                        { field: 'Opportunity.StageName', logic: 'Automatically set to "Closed Lost" if inactive for 14+ days.' },
+                        { field: 'Lead.Closed_Lost_Reason__c', logic: 'Required picklist: "60 Day Aging" or "Stale Inactivity".' }
+                    ]
+                }
+            ];
+
+            const modules = [
+                { title: "Investment Fee Spotlight", icon: "SearchCheck", data: "Current Investment Fees", field: "Investment_Fee_Delta__c", logic: "Visualizes hidden costs of current portfolio.", link: "https://v0-investment-fee-calculator.vercel.app/" },
+                { title: "Roth Conversion Tax Optimizer", icon: "Coins", data: "Tax Strategy Priority", field: "FinServ__TaxStatus__c", logic: "Savings projections for Traditional-to-Roth shifts.", link: "https://v0-roth-conversion-tax-optimizer.vercel.app" },
+                { title: "Retirement Readiness Quiz", icon: "Trophy", data: "Retirement Age", field: "FinServ__RetirementAge__c", logic: "Calculates funding gaps based on lifestyle spend." },
+                { title: "Asset Mix Evaluator", icon: "BarChart3", data: "Investable Assets", field: "FinServ__TotalInvestableAssets__c", logic: "Lead inputs rough buckets (401k/Brokerage)." },
+                { title: "Tax Alpha Calculator", icon: "Calculator", data: "Annual Income", field: "FinServ__AnnualIncome__c", logic: "Identifies harvesting or muni-bond potential." },
+                { title: "Financial Goals Map", icon: "Target", data: "Goal Priority", field: "FinServ__FinancialGoal__c", logic: "Populates FSC Financial Goal related list." }
+            ];
+
+            const mappingMatrix = [
+                { name: "Lead Rating", hs: "lead_grade", fsc: "Rating", component: "Lead Header / Path" },
+                { name: "Persistence Milestone", hs: "is_persistence_phase", fsc: "Persistence_Milestone_Flag__c", component: "Milestone Tracker / Dashboard" },
+                { name: "Clay.io Enriched", hs: "clay_enriched", fsc: "Clay_Enriched__c", component: "System Field (List View)" },
+                { name: "S2L Segment", hs: "priority_segment", fsc: "S2L_Segment__c", component: "System Field (Routing)" },
+                { name: "Reported AUM", hs: "reported_aum", fsc: "FinServ__PotentialValue__c", component: "Financial Summary" },
+                { name: "Qualified AUM", hs: "qualified_aum", fsc: "FinServ__AUM__c", component: "Financial Summary" },
+                { name: "Investable Assets", hs: "liquid_assets", fsc: "FinServ__TotalInvestableAssets__c", component: "Financial Accounts" },
+                { name: "Retirement Age", hs: "retire_age", fsc: "FinServ__RetirementAge__c", component: "Life Goals Component" },
+                { name: "Financial Goal", hs: "primary_goal", fsc: "FinServ__FinancialGoal__c", component: "Financial Goals Related List" },
+                { name: "Last Activity", hs: "last_outreach", fsc: "LastActivityDate", component: "Activity Timeline" },
+                { name: "Inactivity Close", hs: "stale_opp_flag", fsc: "Auto_Closed_Date__c", component: "Opportunity Record Detail" }
+            ];
+
+            const currentStage = funnelStages[activeStage];
+
+            return (
+                <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 md:p-8">
+                    <div className="max-w-6xl mx-auto">
+                        <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+                            <div>
+                                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Perigon Wealth Management</h1>
+                                <p className="text-slate-500 mt-1 uppercase text-xs font-bold tracking-widest flex items-center gap-2">
+                                    <Icon name="TrendingUp" className="text-blue-600" />
+                                    BDR Blueprint: Ideal State FSC Operations
+                                </p>
+                            </div>
+                            <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                                <button onClick={() => setView('funnel')} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-semibold text-xs ${view === 'funnel' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}><Icon name="Users" /> Funnel Map</button>
+                                <button onClick={() => setView('modules')} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-semibold text-xs ${view === 'modules' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}><Icon name="Calculator" /> Qualification Modules</button>
+                                <button onClick={() => setView('matrix')} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-semibold text-xs ${view === 'matrix' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}><Icon name="Link2" /> Data Matrix</button>
+                            </div>
+                        </header>
+
+                        {view === 'funnel' && (
+                            <div className="space-y-6 animate-fade">
+                                <div className="flex flex-wrap gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+                                    {funnelStages.map((stage, index) => (
+                                        <button key={stage.id} onClick={() => setActiveStage(index)} className={`flex-1 min-w-[120px] p-3 rounded-lg text-left transition-all ${activeStage === index ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-slate-50 text-slate-500'}`}>
+                                            <span className="text-[10px] block font-bold uppercase opacity-70">Stage {index + 1}</span>
+                                            <span className="text-xs font-bold leading-tight line-clamp-1">{stage.title}</span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    <div className="lg:col-span-2 space-y-6">
+                                        <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
+                                            <div className="flex items-center gap-4 mb-8">
+                                                <div className="bg-blue-100 p-4 rounded-2xl text-blue-600"><Icon name={currentStage.icon} size={28} /></div>
+                                                <div>
+                                                    <h2 className="text-2xl font-bold text-slate-800">{currentStage.title}</h2>
+                                                    <span className="text-sm font-bold text-blue-600">{currentStage.timeline}</span>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-8">
+                                                <div className="bg-slate-50 p-4 rounded-xl border-l-4 border-blue-600">
+                                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Primary BDR Action</h4>
+                                                    <p className="text-lg text-slate-700 italic leading-relaxed">{currentStage.bdrAction}</p>
+                                                </div>
+
+                                                {currentStage.isStageOne && (
+                                                    <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                                                        {currentStage.categories.map((cat, i) => (
+                                                            <div key={i} className={`p-4 rounded-xl border ${cat.type === 'Critical' ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100'}`}>
+                                                                <span className="text-[10px] font-bold text-slate-400">SLA: {cat.sla}</span>
+                                                                <h5 className="font-bold text-slate-800 text-sm">{cat.label}</h5>
+                                                                <p className="text-xs text-slate-600 mt-1">{cat.desc}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {currentStage.isStageTwo && (
+                                                   <div className="space-y-4 pt-4 border-t border-slate-100">
+                                                      <div className="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4 flex items-center gap-4 shadow-sm">
+                                                         <Icon name="PhoneForwarded" className="text-blue-600" size={24} />
+                                                         <div>
+                                                            <h5 className="text-xs font-bold text-blue-900 uppercase">Operational Directive</h5>
+                                                            <p className="text-sm text-blue-800 leading-tight">
+                                                              <b>Non-Critical leads:</b> Phone outreach begins on <b>Day 1</b> ONLY IF the lead fails to self-schedule via Day 0 written engagement.
+                                                            </p>
+                                                         </div>
+                                                      </div>
+                                                      <div className="bg-blue-600 text-white rounded-xl p-6 relative overflow-hidden shadow-md">
+                                                        <h4 className="text-xs font-bold text-blue-100 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                            <Icon name="MousePointer2" size={14} /> {currentStage.cadenceTheory.title}
+                                                        </h4>
+                                                        <p className="text-sm font-semibold mb-4 text-blue-50 leading-relaxed">{currentStage.cadenceTheory.logic}</p>
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+                                                            {currentStage.cadenceTheory.benefits.map((benefit, i) => (
+                                                                <div key={i} className="bg-blue-700/40 p-3 rounded-lg border border-blue-400/30 text-[11px] text-blue-50">
+                                                                    {benefit.text}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                      </div>
+                                                   </div>
+                                                )}
+
+                                                {currentStage.isStageThree && (
+                                                   <div className="space-y-6 pt-4 border-t border-slate-100">
+                                                      <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-xl flex gap-4">
+                                                         <Icon name="UserPlus" className="text-emerald-600 shrink-0" size={24} />
+                                                         <div>
+                                                            <h4 className="text-sm font-bold text-emerald-900 mb-1">Responsibility Protocol</h4>
+                                                            <p className="text-xs text-emerald-800 leading-relaxed">
+                                                              {currentStage.ownershipNote}
+                                                            </p>
+                                                         </div>
+                                                      </div>
+                                                      <div className="bg-white border border-indigo-100 rounded-2xl overflow-hidden shadow-sm">
+                                                        <div className="bg-indigo-50 px-6 py-3 border-b border-indigo-100 flex items-center gap-2">
+                                                            <Icon name="Gift" className="text-indigo-600" size={16} />
+                                                            <h4 className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest">Strategic Conversion Promos</h4>
+                                                        </div>
+                                                        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            {currentStage.promos.map((promo, i) => (
+                                                                <div key={i} className="flex gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 group hover:border-indigo-200 transition-colors">
+                                                                    <div className="bg-white p-2 rounded-lg shadow-sm text-indigo-500 group-hover:text-indigo-700">
+                                                                        <Icon name={promo.icon} size={18} />
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="text-xs font-bold text-slate-800">{promo.title}</div>
+                                                                        <p className="text-[10px] text-slate-500 leading-tight mt-0.5">{promo.desc}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                      </div>
+                                                   </div>
+                                                )}
+
+                                                {currentStage.isStageFour && (
+                                                    <div className="space-y-6 pt-4 border-t border-slate-100">
+                                                        <div className="bg-amber-100 border border-amber-300 rounded-2xl p-6 shadow-inner relative overflow-hidden group">
+                                                            <div className="flex items-start gap-4 relative z-10">
+                                                                <Icon name="Trophy" className="text-amber-600 shrink-0 mt-1" size={24} />
+                                                                <div>
+                                                                    <h4 className="text-sm font-bold text-amber-900 mb-2 uppercase tracking-wide">30-Day Success Milestone</h4>
+                                                                    <p className="text-xs text-amber-800 leading-relaxed font-medium">{currentStage.heldGoalNote}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-lg">
+                                                            <h4 className="text-xs font-bold text-blue-400 uppercase mb-6 flex items-center gap-2"><Icon name="Code" size={14} /> Custom Engagement Capabilities</h4>
+                                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                                                {currentStage.customCapabilities.map((cap, i) => (
+                                                                    <div key={i} className="flex flex-col gap-2 p-3 bg-slate-800 rounded-xl border border-slate-700">
+                                                                        <div className="text-blue-400"><Icon name={cap.icon} /></div>
+                                                                        <div className="text-xs font-bold text-white">{cap.title}</div>
+                                                                        <p className="text-[10px] text-slate-400 leading-tight">{cap.text}</p>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <div className="border-t border-slate-700 pt-6">
+                                                                <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Potential Providers</h5>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {currentStage.potentialProviders.map((vendor, i) => (
+                                                                        <div key={i} className="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-2">
+                                                                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                                                                            <span className="text-xs font-bold text-slate-300">{vendor}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {currentStage.isStageFive && (
+                                                   <div className="space-y-4 pt-4 border-t border-slate-100">
+                                                      <div className="bg-red-50 border border-red-200 p-6 rounded-xl flex gap-4 shadow-sm">
+                                                         <Icon name="AlertCircle" className="text-red-600 shrink-0" size={24} />
+                                                         <div>
+                                                            <h4 className="text-sm font-bold text-red-900 mb-1 uppercase tracking-tight">Auto-Close Integrity Rules</h4>
+                                                            <p className="text-xs text-red-800 leading-relaxed font-medium">
+                                                               1) Day 61: Auto-disqualify all leads with no held meeting. <br />
+                                                               2) Opportunities: Auto-close any Opp with 14+ days of inactivity from the Advisor. <br />
+                                                               3) Migration: Flow aging records to HubSpot 'Stale Engagement' nurture tracks.
+                                                            </p>
+                                                         </div>
+                                                      </div>
+                                                   </div>
+                                                )}
+
+                                                <div className="bg-indigo-50/50 rounded-2xl p-6 border border-indigo-100/50">
+                                                    <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-widest mb-4 flex items-center gap-2"><Icon name="Database" size={14} /> Stage CRM Data Map</h4>
+                                                    <div className="space-y-3">
+                                                        {currentStage.dataMap.map((data, i) => (
+                                                            <div key={i} className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-3 bg-white rounded-lg border border-indigo-100 shadow-sm">
+                                                                <code className="text-[11px] font-mono font-bold text-indigo-700">{data.field}</code>
+                                                                <span className="text-xs text-slate-600 italic">{data.logic}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-6">
+                                        <div className="bg-slate-800 text-white rounded-2xl p-6 shadow-lg">
+                                            <h3 className="font-bold border-b border-slate-700 pb-3 mb-4 flex items-center gap-2 text-blue-400"><Icon name="BarChart3" size={18} /> Funnel Guardrails</h3>
+                                            <div className="space-y-4 text-xs">
+                                                <div className="bg-slate-700/50 p-3 rounded-lg border border-slate-700"><p className="font-bold text-blue-400">14-Day Schedule Goal</p>Primary BDR objective. Failure by Day 14 triggers straggler conversion promos.</div>
+                                                <div className="bg-slate-700/50 p-3 rounded-lg border border-slate-700"><p className="font-bold text-blue-400">30-Day Held Goal</p>Ideal state target. No Held Meeting post-Day 30: move to persistence tracking.</div>
+                                                <div className="bg-slate-700/50 p-3 rounded-lg border border-red-900/50"><p className="font-bold text-red-400">14-Day Opp Inactivity</p>Hard auto-close for opportunities with no advisor activity for two weeks.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {view === 'modules' && (
+                            <div className="animate-fade space-y-6">
+                                <div className="bg-indigo-900 text-white p-8 rounded-2xl shadow-xl relative overflow-hidden">
+                                    <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Icon name="Calculator" className="text-indigo-300" /> Qualification Gallery</h2>
+                                    <p className="text-indigo-100 opacity-90">Deploy interactive elements to earn engagement. These modules transition from data gathering (Days 1-14) to differentiation value (Days 15-60).</p>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {modules.map((mod, i) => (
+                                        <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                                            <div className="flex items-center gap-3 mb-4">
+                                                <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600"><Icon name={mod.icon} size={20} /></div>
+                                                <h3 className="font-bold text-slate-800">{mod.title}</h3>
+                                            </div>
+                                            <p className="text-xs text-slate-500 mb-4">{mod.logic}</p>
+                                            {mod.link && <a href={mod.link} target="_blank" className="mb-4 inline-flex items-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full hover:bg-indigo-100 transition-all">Launch Tool <Icon name="ExternalLink" size={12} /></a>}
+                                            <div className="space-y-3 pt-4 border-t border-slate-100">
+                                                <div><span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Qualifying Data</span><span className="text-sm font-semibold">{mod.data}</span></div>
+                                                <div><span className="text-[10px] font-bold text-indigo-400 uppercase block">FSC Field</span><code className="text-[10px] bg-indigo-50 text-indigo-700 font-mono p-1 rounded font-bold">{mod.field}</code></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {view === 'matrix' && (
+                            <div className="animate-fade space-y-6">
+                                <div className="bg-emerald-900 text-white p-8 rounded-2xl shadow-xl relative overflow-hidden">
+                                    <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Icon name="Link2" className="text-emerald-300" /> Data Mapping Matrix</h2>
+                                    <p className="text-emerald-100 opacity-90">Technical synchronization map between HubSpot and Perigon's Salesforce FSC with UI Component targets.</p>
+                                </div>
+                                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                    <table className="w-full text-left">
+                                        <thead>
+                                            <tr className="bg-slate-50 border-b border-slate-200">
+                                                <th className="p-4 text-[10px] font-bold text-slate-500 uppercase">Data Point</th>
+                                                <th className="p-4 text-[10px] font-bold text-slate-500 uppercase">HubSpot API Name</th>
+                                                <th className="p-4 text-[10px] font-bold text-slate-500 uppercase">Salesforce FSC API Name</th>
+                                                <th className="p-4 text-[10px] font-bold text-slate-500 uppercase">Component / Surface</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {mappingMatrix.map((row, i) => (
+                                                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="p-4 text-sm font-bold text-slate-800">{row.name}</td>
+                                                    <td className="p-4"><code className="text-[11px] bg-slate-100 text-slate-600 px-2 py-1 rounded">{row.hs}</code></td>
+                                                    <td className="p-4"><code className="text-[11px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded font-bold">{row.fsc}</code></td>
+                                                    <td className="p-4 flex items-center gap-2 text-slate-600 italic"><Icon name="Layout" size={14} className="text-slate-400" /><span className="text-xs">{row.component}</span></td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        <footer className="mt-16 text-center text-slate-400 text-[10px] flex flex-col items-center gap-2 uppercase tracking-[0.2em] pb-12">
+                            <p>© 2024 Perigon Wealth Management | Salesforce Financial Services Cloud Framework</p>
+                        </footer>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
